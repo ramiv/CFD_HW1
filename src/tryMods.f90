@@ -21,8 +21,8 @@ program trymods
 
   !integer ::  i,j
 
-  real,dimension(:,:),pointer :: X ! x output
-  real,dimension(:,:),pointer :: Y ! y output
+  real,dimension(:,:),allocatable :: X ! x output
+  real,dimension(:,:),allocatable :: Y ! y output
   
   path_out_file = 'outTest.txt'
 
@@ -50,6 +50,6 @@ program trymods
 
   close(unit=inUnit)
   close(unit=outUnit)
-  if (associated(X)) deallocate(X)
-  if (associated(Y)) deallocate(Y)
+  if (allocated(X)) deallocate(X)
+  if (allocated(Y)) deallocate(Y)
 end

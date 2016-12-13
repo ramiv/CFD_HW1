@@ -4,10 +4,10 @@ MODULE outmod
 
   contains
     subroutine write_XY(outUnit,X,Y,rundata)
-      integer,intent(inout)           ::  outUnit  !number of the output unit
-      real,dimension(:,:),pointer     ::  X        !X result
-      real,dimension(:,:),pointer     ::  Y        !Y result
-      type(RunParms),intent(IN)       ::  rundata  ! data about the run
+      integer,intent(inout)                 ::  outUnit  !number of the output unit
+      real,dimension(:,:),intent(inout)     ::  X        !X result
+      real,dimension(:,:),intent(inout)     ::  Y        !Y result
+      type(RunParms),intent(IN)             ::  rundata  ! data about the run
 
       character(len=50)   ::  format_str !help string for creating formats
 

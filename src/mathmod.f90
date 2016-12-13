@@ -6,8 +6,8 @@ MODULE mathmod
   contains
 
   subroutine Init_GRID(X,Y,run_p) 
-    real,dimension(:,:),pointer :: X
-    real,dimension(:,:),pointer :: Y
+    real,dimension(:,:),intent(inout) :: X
+    real,dimension(:,:),intent(inout) :: Y
     type(RunParms),intent(IN)   :: run_p
 
     integer :: I,J
@@ -127,8 +127,8 @@ MODULE mathmod
     real,dimension(:,:),intent(IN)    :: y_xi,y_eta
     type(CaseParms),intent(in)         :: case_p
 
-    real,dimension(:,:),pointer       :: X,Y
-    real,dimension(:,:),pointer       :: PHI,PSI
+    real,dimension(:,:),intent(inout)       :: X,Y
+    real,dimension(:,:),intent(inout)       :: PHI,PSI
 
     integer i,j,N,M
 
@@ -185,8 +185,8 @@ MODULE mathmod
     ! this function calcs the partial derivatives of X,Y 
     ! Inputs - X,Y pointers
     ! Outputs - X_xi, X_eta, Y_xi, Y_xi - externally allocated matrecies
-    real,dimension(:,:),pointer :: X
-    real,dimension(:,:),pointer :: Y
+    real,dimension(:,:),intent(inout) :: X
+    real,dimension(:,:),intent(inout) :: Y
 
     real,dimension(:,:),intent(INOUT) :: X_xi,X_eta,Y_xi,Y_eta
 
@@ -219,7 +219,7 @@ MODULE mathmod
   end subroutine
 
   real function calc_diff(X,i,j,dir)
-    real,dimension(:,:),pointer :: X
+    real,dimension(:,:),intent(inout) :: X
     integer,intent(IN) :: i,j
     integer,intent(IN) :: dir !may be 1 or 2
 
@@ -232,7 +232,7 @@ MODULE mathmod
   end function
 
   real function calc_2nd_diff(X,i,j,dir)
-    real,dimension(:,:),pointer :: X
+    real,dimension(:,:),intent(inout) :: X
     integer,intent(IN) :: i,j
     integer,intent(IN) :: dir !may be 1 or 2
 
@@ -258,7 +258,7 @@ MODULE mathmod
   subroutine interp2Dmat_eta(X)
   ! Subroutine for interpulation in the eta/j direction
   ! INPUT/OUTPUT: X - the interpulated matrix
-    real,dimension(:,:),pointer :: X
+    real,dimension(:,:),intent(inout) :: X
     integer   :: N 
     integer   :: M 
 
@@ -280,7 +280,7 @@ MODULE mathmod
   subroutine interp2Dmat_xi(X)
   ! Subroutine for interpulation in the xi/i direction
   ! INPUT/OUTPUT: X - the interpulated matrix
-    real,dimension(:,:),pointer :: X
+    real,dimension(:,:),intent(inout) :: X
     integer   :: N 
     integer   :: M 
 

@@ -1,0 +1,11 @@
+
+&rundata 
+ t_profile =  0.12,
+ i_max	 =  51,
+ j_max	 =  26/
+ i_TEL	 =  12,
+ i_LE 	 =  26,
+ i_TEU 	 =  40,
+ dy	 =  .02,
+ XSF	 =  1.15,
+ YSF	 =  1.15/

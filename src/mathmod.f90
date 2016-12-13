@@ -5,6 +5,33 @@ MODULE mathmod
   real,parameter :: pi = acos(-1.0)
   contains
 
+    subroutine calc_RHS(X,alpha,beta,gama,phi,psi,RHS)
+      real,dimension(:,:),intent(in)  :: X
+      real,dimension(:,:),intent(in)  :: alpha,beta,gama
+      real,dimension(:,:),intent(in)  :: phi,psi
+
+      real,dimension(:,:),intent(inout) :: RHS
+
+      integer     :: I,J
+      integer     :: N,M
+      ! I assume that RHS was externally allocated
+
+      N = size(X,1)
+      M = size(X,2)
+
+      RHS = 0.
+
+      do i = 2,N-1
+        do j = 2,M-1
+          RHS(i,j) = alpha(i,j) * (calc_2nd_diff(X,i,j,1) + phi(i,j) * &
+                    &calc_diff(X,i,j,1) ) &
+                    &- beta(i,j)/2. * (X(i+1,j+1) - X(i+1,j-1) - X(i-1,j+1) +&
+                    &X(i-1,j-1) ) &
+                    &+ gama(i,j) * (calc_2nd_diff(X,i,j,2) + psi(i,j) * &
+                    &calc_diff(X,i,j,2)
+        end do
+      end do
+    end subroutine
   subroutine Init_GRID(X,Y,run_p) 
     real,dimension(:,:),intent(inout) :: X
     real,dimension(:,:),intent(inout) :: Y
@@ -140,7 +167,7 @@ MODULE mathmod
 
     if (case_p%isPSI) THEN
       ! for xi = 1,N
-      do i=1,N,(n-1)
+      do i=1,N,(N-1)
         do j=2,M-1
           ! BC on xi = 1
           if ( abs(y_eta(i,j)) >= abs(x_eta(i,j)) ) THEN
@@ -177,7 +204,7 @@ MODULE mathmod
     real,dimension(:,:),intent(INOUT) :: gama
 
     alpha = x_eta**2 + y_eta**2
-    beta  = x_xi * x_eta + y_xi * y_eta
+    beta  = x_xi*x_eta + y_xi*y_eta
     gama  = x_xi**2 + y_xi**2
   end subroutine
 
@@ -219,19 +246,25 @@ MODULE mathmod
   end subroutine
 
   real function calc_diff(X,i,j,dir)
+    ! calcualtes the first derivative in the 'dir' direction of 2d matrix X at
+    ! location i,j please note that the function DOES NOT devide by dx or dy for
+    ! simplicity. if needed, please devide outside the functio
     real,dimension(:,:),intent(inout) :: X
     integer,intent(IN) :: i,j
     integer,intent(IN) :: dir !may be 1 or 2
 
     select case (dir)
       case (1)
-      calc_diff = ( X(i+1,j) - X(i-1,j) )/2.
+        calc_diff = ( X(i+1,j) - X(i-1,j) )/2.
       case (2)
-      calc_diff = ( X(i,j+1) - X(i,j-1) )/2.
+        calc_diff = ( X(i,j+1) - X(i,j-1) )/2.
     end select
   end function
 
   real function calc_2nd_diff(X,i,j,dir)
+    ! calculates the second derivative in the 'dir' direction of 2d matrix X at
+    ! location i,j. Please note that the function DOES NOT devide by dx**2 or
+    ! dy**2 for simplicity. if needed, please devide outside the function
     real,dimension(:,:),intent(inout) :: X
     integer,intent(IN) :: i,j
     integer,intent(IN) :: dir !may be 1 or 2

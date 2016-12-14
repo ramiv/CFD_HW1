@@ -12,6 +12,64 @@ MODULE mathmod
   end interface
   contains
 
+    subroutine step(X,Y,case_p,run_p,sol_p)
+    ! master subroutine of the solution
+    ! INPUT:
+    !     run_p - run parameters structure
+    !     case_p- case parameters structure
+    ! OUTPUT:
+    !     X - the grid x coordinates
+    !     Y - the grid y coordinates
+      real,dimension(:,:),intent(inout)   :: X,Y
+      type(CaseParms),intent(in)          :: case_p
+      type(RunParms),intent(in)           :: run_p
+
+      real,dimension(:,:),allocatable :: X_xi,X_eta,Y_xi,Y_eta ! the derivs
+      real,dimension(:,:),allocatable :: PHI,PSI ! the control functions
+      real,dimension(:,:),allocatable :: alpha,beta,gama ! 
+
+      real    :: error1_x = BAD_REAL
+      real    :: error1_y = BAD_REAL
+      real    :: error_x,error_y
+      logical :: cont_run = .TRUE.
+      integer :: N,M
+
+      N = run_p%i_max
+      M = run_p%j_max
+
+      allocate(X_xi(N,M),Y_xi(N,M),X_eta(N,M),Y_eta(N,M))
+      allocate(PHI(N,M),PSI(N,M))
+      allocate(alpha(N,M),beta(N,M),gama(N,M))
+
+      
+      ! first Init the grid
+      call Init_GRID(X,Y,run_p)
+      do while ( cont_run )
+        call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) 
+        call calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI)
+        call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama)
+      end do
+
+
+    end subroutine
+
+    real function calc_error(RHS)
+      real,dimension(:,:),intent(IN) :: RHS
+      integer             :: I,J,N,M
+      real                :: current_error
+
+      N = size(RHS,1)
+      M = size(RHS,2)
+
+      calc_error = -1.
+      do i=1,N
+        do j=1,M
+          current_error = abs(RHS(i,j))
+          if (calc_error < current_error) calc_error = current_error
+        end do
+      end do
+      calc_error = log10(calc_error)
+    end function
 
     subroutine calc_A_xi(alpha,j,A_xi)
       real,dimension(:,:),intent(in)  ::  alpha

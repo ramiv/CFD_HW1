@@ -22,6 +22,9 @@ MODULE inmod
 
     real      :: w            ! relaxation parameter
     real      :: r            ! relaxation parameter
+
+    real   :: eps          ! portion between the last and first errors 
+    character(len=300) ::  output_path
   end type
 
 contains

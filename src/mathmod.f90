@@ -3,36 +3,153 @@ MODULE mathmod
   implicit none
 
   real,parameter :: pi = acos(-1.0)
+
+  interface
+    subroutine TRIDIAG(A,B,C,D,U,N,IS,IE)
+      REAL ::  A(0:N),B(0:N),C(0:N),D(0:N),U(0:N)
+      INTEGER :: N,IS,IE
+    end subroutine
+  end interface
   contains
 
+
+    subroutine calc_A_xi(alpha,j,A_xi)
+      real,dimension(:,:),intent(in)  ::  alpha
+      real,dimension(:),intent(inout) ::  A_xi
+      integer,intent(in)              ::  j ! the eta location
+
+      integer I,N
+
+      N = size(A_xi)
+      A_xi = 0.
+      
+      do i=2,N-1
+        A_xi(i) = -alpha(i,j)
+      end do
+    end subroutine
+
+    subroutine calc_B_xi(alpha,r,j,B_xi)
+      real,dimension(:,:),intent(in)  ::  alpha
+      real,dimension(:),intent(inout) ::  B_xi
+      real,intent(in)                 ::  r ! relexation parameter
+      integer,intent(in)              ::  j ! the eta location
+
+      integer I,N
+
+      N = size(B_xi)
+      B_xi = 1.
+      
+      do i=2,N-1
+        B_xi(i) = (r + 2.*alpha(i,j) )
+      end do
+    end subroutine
+
+    subroutine calc_C_xi(alpha,j,C_xi)
+      real,dimension(:,:),intent(in)  ::  alpha
+      real,dimension(:),intent(inout) ::  C_xi
+      integer,intent(in)              ::  j ! the eta location
+
+      integer I,N
+
+      N = size(C_xi)
+      C_xi = 0.
+      
+      do i=2,N-1
+        C_xi(i) = -alpha(i,j)
+      end do
+    end subroutine
+
+    subroutine calc_A_eta(gama,i,A_eta)
+      real,dimension(:,:),intent(in)  ::  gama
+      real,dimension(:),intent(inout) ::  A_eta
+      integer,intent(in)              ::  i ! the eta location
+
+      integer J,M
+
+      M = size(A_eta)
+      A_eta = 0.
+      
+      do j=2,M-1
+        A_eta(j) = -gama(i,j)
+      end do
+    end subroutine
+
+    subroutine calc_B_eta(gama,r,i,B_eta)
+      real,dimension(:,:),intent(in)  ::  gama
+      real,dimension(:),intent(inout) ::  B_eta
+      real,intent(in)                 ::  r ! relexation parameter
+      integer,intent(in)              ::  i ! the eta location
+
+      integer J,M
+
+      M = size(B_eta)
+      B_eta = 1.
+      
+      do j=2,M-1
+        B_eta(i) = (r + 2.*gama(i,j) )
+      end do
+    end subroutine
+
+    subroutine calc_C_eta(gama,i,C_eta)
+      real,dimension(:,:),intent(in)  ::  gama
+      real,dimension(:),intent(inout) ::  C_eta
+      integer,intent(in)              ::  i ! the eta location
+
+      integer J,M
+
+      M = size(C_eta)
+      C_eta = 0.
+      
+      do j=2,M-1
+        C_eta(i) = -gama(i,j)
+      end do
+    end subroutine
+
     subroutine calc_RHS(X,alpha,beta,gama,phi,psi,RHS)
+      ! This function calculates the RHS of the PDE meaning Lx
+      ! 
+      ! Input: X - the matrix at time point n
+      !        alpha,beta,gama - the coefficents of the equation
+      !        phi,psi         - the control functions
+      ! Output: RHS - the calculated output matrix, needs to be allocated
+      ! outside of the subroutine
+      ! 
       real,dimension(:,:),intent(in)  :: X
       real,dimension(:,:),intent(in)  :: alpha,beta,gama
       real,dimension(:,:),intent(in)  :: phi,psi
 
       real,dimension(:,:),intent(inout) :: RHS
 
+      real,dimension(:,:),allocatable :: X_local
+
       integer     :: I,J
       integer     :: N,M
       ! I assume that RHS was externally allocated
 
+
       N = size(X,1)
       M = size(X,2)
+
+      allocate(X_local(N,M))
 
       RHS = 0.
 
       do i = 2,N-1
         do j = 2,M-1
-          RHS(i,j) = alpha(i,j) * (calc_2nd_diff(X,i,j,1) + phi(i,j) * &
-                    &calc_diff(X,i,j,1) ) &
-                    &- beta(i,j)/2. * (X(i+1,j+1) - X(i+1,j-1) - X(i-1,j+1) +&
-                    &X(i-1,j-1) ) &
-                    &+ gama(i,j) * (calc_2nd_diff(X,i,j,2) + psi(i,j) * &
-                    &calc_diff(X,i,j,2)
+          RHS(i,j) = alpha(i,j) * (calc_2nd_diff(X_local,i,j,1) + phi(i,j) * &
+                    &calc_diff(X_local,i,j,1) ) &
+                    &- beta(i,j)/2. * (X_local(i+1,j+1) - X_local(i+1,j-1) &
+                    &- X_local(i-1,j+1) - X_local(i-1,j-1) ) &
+                    &+ gama(i,j) * (calc_2nd_diff(X_local,i,j,2) + psi(i,j) * &
+                    &calc_diff(X_local,i,j,2) )
         end do
       end do
+
+      deallocate(X_local)
     end subroutine
+
   subroutine Init_GRID(X,Y,run_p) 
+    ! calculates the initial grid condition of X and Y
     real,dimension(:,:),intent(inout) :: X
     real,dimension(:,:),intent(inout) :: Y
     type(RunParms),intent(IN)   :: run_p
@@ -149,7 +266,14 @@ MODULE mathmod
     call interp2Dmat_eta(Y)
   end subroutine
 
-  subroutine calc_BC(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI)
+  subroutine calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI)
+    ! calculates the Control funcctions PHI and PSI
+    ! INPUT: 
+    !       x_xi,x_eta,y_xi,y_eta - the metric derivetives
+    !       case_p - case parameters structure
+    !       X,Y    - the grid at the current time point n
+    ! OUTPUT:
+    !       PHI,PSI - the output control functions
     real,dimension(:,:),intent(IN)    :: x_xi,x_eta
     real,dimension(:,:),intent(IN)    :: y_xi,y_eta
     type(CaseParms),intent(in)         :: case_p
@@ -331,7 +455,5 @@ MODULE mathmod
       end do
     end do
   end subroutine
-
-
 
 end module

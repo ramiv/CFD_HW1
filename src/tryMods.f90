@@ -1,6 +1,6 @@
 ! CFD HW1 - elliptic problem by Rami Veiberman ID 308498831
 
-program trymods
+program HW1
   use inMod
   use outMod
   use mathMod

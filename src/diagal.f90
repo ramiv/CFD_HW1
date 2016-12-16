@@ -6,9 +6,10 @@
 !     vector, N is the dimension, IS is the starting point, and IE is
 !     the last point.
 !
-      REAL A(0:N),B(0:N),C(0:N),D(0:N),U(0:N)
-      real :: BETA
       INTEGER :: N,IS,IE
+      !REAL A(0:N),B(0:N),C(0:N),D(0:N),U(0:N)
+      REAL A(IS:IE),B(IS:IE),C(IS:IE),D(IS:IE),U(IS:IE)
+      real :: BETA
       INTEGER :: I
       DO I = IS + 1,IE
          IF(B(I-1).EQ.0.) then

@@ -13,6 +13,7 @@ MODULE outmod
 
       integer :: i
 
+      rewind(unit=outUnit)
       write(format_str,'(A,I2,A)'),"(",rundata%j_max,"(1X,E15.7))"
       
       write(outUnit,'(A,I3)'),"N = ",rundata%i_max
@@ -22,7 +23,6 @@ MODULE outmod
       do i=1,rundata%i_max
         write(outUnit,format_str),X(i,:)
       end do
-      write(outUnit,'(A)'),"Y"
       do i=1,rundata%i_max
         write(outUnit,format_str),Y(i,:)
       end do

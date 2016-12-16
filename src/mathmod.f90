@@ -1,8 +1,8 @@
 MODULE mathmod
   use inMod
+  use outMod
   implicit none
 
-  real,parameter :: pi = acos(-1.0)
 
   interface
     subroutine TRIDIAG(A,B,C,D,U,N,IS,IE)
@@ -10,9 +10,11 @@ MODULE mathmod
       INTEGER :: N,IS,IE
     end subroutine
   end interface
+
+  real,parameter :: pi = acos(-1.0)
   contains
 
-    subroutine step(X,Y,case_p,run_p,sol_p)
+    subroutine step(case_p,run_p)
     ! master subroutine of the solution
     ! INPUT:
     !     run_p - run parameters structure
@@ -20,55 +22,196 @@ MODULE mathmod
     ! OUTPUT:
     !     X - the grid x coordinates
     !     Y - the grid y coordinates
-      real,dimension(:,:),intent(inout)   :: X,Y
       type(CaseParms),intent(in)          :: case_p
       type(RunParms),intent(in)           :: run_p
 
+      real,dimension(:,:),allocatable :: X,Y
       real,dimension(:,:),allocatable :: X_xi,X_eta,Y_xi,Y_eta ! the derivs
       real,dimension(:,:),allocatable :: PHI,PSI ! the control functions
       real,dimension(:,:),allocatable :: alpha,beta,gama ! 
+      real,dimension(:,:),allocatable :: Cx_n,Fx_n
+      real,dimension(:,:),allocatable :: Cy_n,Fy_n
+      real,dimension(:,:),allocatable :: Lx,Ly,Fn
 
       real    :: error1_x = BAD_REAL
       real    :: error1_y = BAD_REAL
       real    :: error_x,error_y
+      real    :: partial_error_x,partial_error_y
       logical :: cont_run = .TRUE.
       integer :: N,M
+      integer :: i_loop = 1
+      integer :: outUnit_main
+      integer :: outMod = 10
 
       N = run_p%i_max
       M = run_p%j_max
 
+      allocate(X(N,M),Y(N,M))
+      allocate(Lx(N,M),Ly(N,M),Fn(N,M))
       allocate(X_xi(N,M),Y_xi(N,M),X_eta(N,M),Y_eta(N,M))
-      allocate(PHI(N,M),PSI(N,M))
+      allocate(PHI(N,M),PSI(N,M),Cx_n(N,M),Cy_n(N,M),Fx_n(N,M),Fy_n(N,M))
       allocate(alpha(N,M),beta(N,M),gama(N,M))
 
+      open(unit=outUnit_main,file=case_p%output_path,&
+           &STATUS='REPLACE',FORM='FORMATTED')
       
       ! first Init the grid
       call Init_GRID(X,Y,run_p)
-      do while ( cont_run )
+      do while ( cont_run .AND. (i_loop < 20000))
         call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) 
         call calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI)
         call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama)
+
+        ! solve the equation in the X direction
+        call solve_Xi_eq(alpha,beta,gama,PHI,PSI,case_p%r,case_p%w,X,Fx_n,error_X)
+        call solve_Xi_eq(alpha,beta,gama,PHI,PSI,case_p%r,case_p%w,Y,Fy_n,error_Y)
+
+        if (i_loop == 1) THEN
+          error1_x = error_X
+          error1_y = error_Y
+
+          WRITE(outUnit_main,'(A)'),"N  Err_x  Err_y"
+        end if
+
+        call solve_eta_eq(gama,case_p%r,Fx_n,Cx_n)
+        call solve_eta_eq(gama,case_p%r,Fy_n,Cy_n)
+
+        X = (X + Cx_n)
+        Y = (Y + Cy_n)
+        !call write_XY(outUnit_main,Cx_n,Cy_n,run_p)
+
+        partial_error_x = log10(error_X/error1_X)
+        partial_error_y = log10(error_Y/error1_Y)
+
+        if ((partial_error_x < case_p%eps) .AND. (partial_error_y < case_p%eps)) THEN
+          cont_run = .FALSE.
+        end if
+
+        if (mod(i_loop,outMod) == 0) THEN
+          write(outUnit_main,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
+          write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
+        end if
+
+        i_loop = i_loop + 1
       end do
 
+      ! now export it out to
+      call write_XY(outUnit_main,X,Y,run_p)
+      write(outUnit_main,'(A)'),''
+      close(unit=outUnit_main)
+
+      deallocate(X,Y)
+      deallocate(Lx,Ly,Fn)
+      deallocate(X_xi,Y_xi,X_eta,Y_eta)
+      deallocate(PHI,PSI,Cx_n,Cy_n,Fx_n,Fy_n)
+    end subroutine
+
+    subroutine solve_Xi_eq(alpha,beta,gama,phi,psi,r,w,X,Fx_n,error)
+      ! sub for solving in xi direction either X or Y equation. Gets alpha,r,w,X
+      ! and returns the Fx_n matrix and the error as defined
+      ! Log10(Max(Abs(Lx)))
+      real,dimension(:,:),intent(in)   :: alpha
+      real,dimension(:,:),intent(in)   :: beta
+      real,dimension(:,:),intent(in)   :: gama
+      real,dimension(:,:),intent(in)   :: phi,psi
+      real,dimension(:,:),intent(in)   :: X
+      real,dimension(:,:),intent(inout)  :: Fx_n
+      real,intent(in)   :: r,w
+      real,intent(out)    :: error
+
+      real,dimension(:),allocatable :: A_xi,B_xi,C_xi,D_xi
+      real,dimension(:),allocatable :: Fnj
+      real,dimension(:,:),allocatable :: Lx
+      integer :: J,N,M
+
+      N = size(X,1)
+      M = size(X,2)
+
+      Fx_n = 0.
+
+      allocate(A_xi(N),B_xi(N),C_xi(N),D_xi(N))
+      allocate(Fnj(N))
+      allocate(Lx(N,M))
+
+      Fnj = 0.
+      Lx = 0.
+
+      call calc_Lx(X,alpha,beta,gama,phi,psi,Lx)
+      do j = 2,M-1
+        call calc_A_xi(alpha,j,A_xi)
+        call calc_B_xi(alpha,r,j,B_xi)
+        call calc_C_xi(alpha,j,C_xi)
+        D_xi = Lx(:,j)*r*w
+
+        call TRIDIAG(A_xi,B_xi,C_xi,D_xi,Fnj,N,1,N)
+        Fx_n(:,j) = Fnj
+      end do
+      error = calc_error(Lx)
+
+      deallocate(A_xi)
+      deallocate(B_xi)
+      deallocate(C_xi)
+      deallocate(D_xi)
+      deallocate(Fnj)
+
+      deallocate(Lx)
 
     end subroutine
 
-    real function calc_error(RHS)
-      real,dimension(:,:),intent(IN) :: RHS
+    subroutine solve_eta_eq(gama,r,Fx_n,Cx_n)
+      ! sub for solving in xi direction either X or Y equation. Gets alpha,r,w,X
+      ! and returns the Fx_n matrix and the error as defined
+      ! Log10(Max(Abs(Lx)))
+      real,dimension(:,:),intent(in)   :: gama
+      real,intent(in)   :: r
+      real,dimension(:,:),intent(in)  :: Fx_n
+      real,dimension(:,:),intent(inout)  :: Cx_n
+
+      real,dimension(:),allocatable :: A_eta,B_eta,C_eta,D_eta,Cni
+      integer :: I,N,M
+
+      N = size(Fx_n,1)
+      M = size(Fx_n,2)
+
+      Cx_n = 0.
+
+      allocate(A_eta(M),B_eta(M),C_eta(M),D_eta(M),Cni(M))
+
+      D_eta = 0.
+      Cni   = 0.
+
+      do i = 2,N-1
+        call calc_A_eta(gama,i,A_eta)
+        call calc_B_eta(gama,r,i,B_eta)
+        call calc_C_eta(gama,i,C_eta)
+        D_eta(2:M-1) = Fx_n(i,2:M-1)
+
+        call TRIDIAG(A_eta,B_eta,C_eta,D_eta,Cni,M,1,M)
+        Cx_n(i,:) = Cni
+      end do
+
+      deallocate(A_eta)
+      deallocate(B_eta)
+      deallocate(C_eta)
+      deallocate(D_eta)
+      deallocate(Cni)
+    end subroutine
+
+    real function calc_error(Lx)
+      real,dimension(:,:),intent(IN) :: Lx
       integer             :: I,J,N,M
       real                :: current_error
 
-      N = size(RHS,1)
-      M = size(RHS,2)
+      N = size(Lx,1)
+      M = size(Lx,2)
 
       calc_error = -1.
-      do i=1,N
-        do j=1,M
-          current_error = abs(RHS(i,j))
+      do i=2,N-1
+        do j=2,M-1
+          current_error = abs(Lx(i,j))
           if (calc_error < current_error) calc_error = current_error
         end do
       end do
-      calc_error = log10(calc_error)
     end function
 
     subroutine calc_A_xi(alpha,j,A_xi)
@@ -144,7 +287,7 @@ MODULE mathmod
       B_eta = 1.
       
       do j=2,M-1
-        B_eta(i) = (r + 2.*gama(i,j) )
+        B_eta(j) = (r + 2.*gama(i,j) )
       end do
     end subroutine
 
@@ -159,30 +302,30 @@ MODULE mathmod
       C_eta = 0.
       
       do j=2,M-1
-        C_eta(i) = -gama(i,j)
+        C_eta(j) = -gama(i,j)
       end do
     end subroutine
 
-    subroutine calc_RHS(X,alpha,beta,gama,phi,psi,RHS)
-      ! This function calculates the RHS of the PDE meaning Lx
+    subroutine calc_Lx(X,alpha,beta,gama,phi,psi,Lx)
+      ! This function calculates the Lx
       ! 
       ! Input: X - the matrix at time point n
       !        alpha,beta,gama - the coefficents of the equation
       !        phi,psi         - the control functions
-      ! Output: RHS - the calculated output matrix, needs to be allocated
+      ! Output: Lx - the calculated output matrix, needs to be allocated
       ! outside of the subroutine
       ! 
       real,dimension(:,:),intent(in)  :: X
       real,dimension(:,:),intent(in)  :: alpha,beta,gama
       real,dimension(:,:),intent(in)  :: phi,psi
 
-      real,dimension(:,:),intent(inout) :: RHS
+      real,dimension(:,:),intent(inout) :: Lx
 
       real,dimension(:,:),allocatable :: X_local
 
       integer     :: I,J
       integer     :: N,M
-      ! I assume that RHS was externally allocated
+      ! I assume that Lx was externally allocated
 
 
       N = size(X,1)
@@ -190,11 +333,11 @@ MODULE mathmod
 
       allocate(X_local(N,M))
 
-      RHS = 0.
+      Lx = 0.
 
       do i = 2,N-1
         do j = 2,M-1
-          RHS(i,j) = alpha(i,j) * (calc_2nd_diff(X_local,i,j,1) + phi(i,j) * &
+          Lx(i,j) = alpha(i,j) * (calc_2nd_diff(X_local,i,j,1) + phi(i,j) * &
                     &calc_diff(X_local,i,j,1) ) &
                     &- beta(i,j)/2. * (X_local(i+1,j+1) - X_local(i+1,j-1) &
                     &- X_local(i-1,j+1) - X_local(i-1,j-1) ) &
@@ -353,9 +496,9 @@ MODULE mathmod
         do j=2,M-1
           ! BC on xi = 1
           if ( abs(y_eta(i,j)) >= abs(x_eta(i,j)) ) THEN
-            PSI(i,j) = - calc_2nd_diff(Y,i,j,2)/calc_diff(Y,i,j,2)
+            PSI(i,j) = - (calc_2nd_diff(Y,i,j,2))/(calc_diff(Y,i,j,2))
           else
-            PSI(i,j) = - calc_2nd_diff(X,i,j,2)/calc_diff(X,i,j,2)
+            PSI(i,j) = - (calc_2nd_diff(X,i,j,2))/(calc_diff(X,i,j,2))
           end if
         end do
       end do
@@ -367,9 +510,9 @@ MODULE mathmod
         do i=2,N-1
           ! BC on eta = 1
           if (abs(x_xi(i,j)) >= abs(y_xi(i,j) ) ) THEN
-            PHI(i,j) = - calc_2nd_diff(X,i,j,1) / calc_diff(X,i,j,1)
+            PHI(i,j) = - (calc_2nd_diff(X,i,j,1)) / (calc_diff(X,i,j,1))
           else
-            PHI(i,j) = - calc_2nd_diff(Y,i,j,1) / calc_diff(Y,i,j,1)
+            PHI(i,j) = - (calc_2nd_diff(Y,i,j,1)) / (calc_diff(Y,i,j,1))
           end if
         end do
       end do

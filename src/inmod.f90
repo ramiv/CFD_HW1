@@ -143,8 +143,10 @@ contains
 
     real      :: w    = BAD_REAL        ! relaxation parameter
     real      :: r    = BAD_REAL        ! relaxation parameter
+    real      :: eps  = BAD_REAL        ! relaxation parameter
+    character(len=300) ::  output_path = ''
 
-    namelist /casedata/isPHY,isPSI,w,r
+    namelist /casedata/isPHY,isPSI,w,r,eps,output_path
 
     read(unit=iUnit,nml=casedata,IOSTAT=ISTAT) ! read the namelist
 
@@ -167,6 +169,18 @@ contains
       WRITE(*,*),"r read = ",r
     end if
 
+    if (eps == BAD_REAL ) THEN
+      badInp = .TRUE.
+      WRITE(*,*),"Could not read %casedata namelist 'eps' variable, please check input!"
+      WRITE(*,*),"eps read = ",eps
+    end if
+
+    if (output_path == '' ) THEN
+      badInp = .TRUE.
+      WRITE(*,*),"Could not read %casedata namelist 'output_path' variable, please check input!"
+      WRITE(*,*),"output_path read = ",output_path
+    end if
+
     if (badInp) then
       close(unit=iUnit)
       CALL EXIT()
@@ -176,6 +190,8 @@ contains
   parms%isPSI       = isPSI
   parms%r           = r
   parms%w           = w
+  parms%eps         = eps
+  parms%output_path = output_path
 
   END SUBROUTINE readCaseParms
 END MODULE inmod

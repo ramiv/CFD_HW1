@@ -342,7 +342,7 @@ MODULE mathmod
                     &- beta(i,j)/2. * (X(i+1,j+1) - X(i+1,j-1) &
                     &- X(i-1,j+1) + X(i-1,j-1) ) &
                     &+ gama(i,j) * (X(i,j+1) - 2.*X(i,j) + X(i,j-1) + psi(i,j) *&
-                    &(X(i,j+1) - X(i,j-1) )/2. )
+                    &(X(i,j+1) - X(i,j-1))/2. )
         end do
       end do
 
@@ -658,7 +658,7 @@ MODULE mathmod
 
     do j = 2,M-1
       X0 = X(1,j)
-      Xmax = X(M,j)
+      Xmax = X(N,j)
       do i=2,N-1
         X(i,j) = X0*(N-i)/N + Xmax*i/N
       end do

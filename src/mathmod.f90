@@ -31,7 +31,7 @@ MODULE mathmod
       real,dimension(:,:),allocatable :: alpha,beta,gama ! 
       real,dimension(:,:),allocatable :: Cx_n,Fx_n
       real,dimension(:,:),allocatable :: Cy_n,Fy_n
-      real,dimension(:,:),allocatable :: Lx,Ly,Fn
+      real,dimension(:,:),allocatable :: Lx,Ly
 
       real    :: error1_x = BAD_REAL
       real    :: error1_y = BAD_REAL
@@ -41,13 +41,13 @@ MODULE mathmod
       integer :: N,M
       integer :: i_loop = 1
       integer :: outUnit_main
-      integer :: outMod = 10
+      integer :: outMod = 1
 
       N = run_p%i_max
       M = run_p%j_max
 
       allocate(X(N,M),Y(N,M))
-      allocate(Lx(N,M),Ly(N,M),Fn(N,M))
+      allocate(Lx(N,M),Ly(N,M))
       allocate(X_xi(N,M),Y_xi(N,M),X_eta(N,M),Y_eta(N,M))
       allocate(PHI(N,M),PSI(N,M),Cx_n(N,M),Cy_n(N,M),Fx_n(N,M),Fy_n(N,M))
       allocate(alpha(N,M),beta(N,M),gama(N,M))
@@ -57,7 +57,7 @@ MODULE mathmod
       
       ! first Init the grid
       call Init_GRID(X,Y,run_p)
-      do while ( cont_run .AND. (i_loop < 20000))
+      do while ( cont_run .AND. (i_loop < 1000))
         call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) 
         call calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI)
         call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama)
@@ -80,8 +80,8 @@ MODULE mathmod
         Y = (Y + Cy_n)
         !call write_XY(outUnit_main,Cx_n,Cy_n,run_p)
 
-        partial_error_x = log10(error_X/error1_X)
-        partial_error_y = log10(error_Y/error1_Y)
+        partial_error_x = log10(error_X)-log10(error1_X)
+        partial_error_y = log10(error_Y)-log10(error1_Y)
 
         if ((partial_error_x < case_p%eps) .AND. (partial_error_y < case_p%eps)) THEN
           cont_run = .FALSE.
@@ -89,7 +89,8 @@ MODULE mathmod
 
         if (mod(i_loop,outMod) == 0) THEN
           write(outUnit_main,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
-          write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
+          !write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
+          write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, error_x,error_y
         end if
 
         i_loop = i_loop + 1
@@ -101,9 +102,10 @@ MODULE mathmod
       close(unit=outUnit_main)
 
       deallocate(X,Y)
-      deallocate(Lx,Ly,Fn)
+      deallocate(Lx,Ly)
       deallocate(X_xi,Y_xi,X_eta,Y_eta)
       deallocate(PHI,PSI,Cx_n,Cy_n,Fx_n,Fy_n)
+      deallocate(alpha,beta,gama)
     end subroutine
 
     subroutine solve_Xi_eq(alpha,beta,gama,phi,psi,r,w,X,Fx_n,error)
@@ -127,21 +129,21 @@ MODULE mathmod
       N = size(X,1)
       M = size(X,2)
 
-      Fx_n = 0.
+      Fx_n = BAD_REAL
 
       allocate(A_xi(N),B_xi(N),C_xi(N),D_xi(N))
       allocate(Fnj(N))
       allocate(Lx(N,M))
 
-      Fnj = 0.
-      Lx = 0.
+      Fnj = BAD_REAL
+      Lx = BAD_REAL
 
       call calc_Lx(X,alpha,beta,gama,phi,psi,Lx)
-      do j = 2,M-1
+      do j = 1,M
         call calc_A_xi(alpha,j,A_xi)
         call calc_B_xi(alpha,r,j,B_xi)
         call calc_C_xi(alpha,j,C_xi)
-        D_xi = Lx(:,j)*r*w
+        D_xi(2:N-1) = Lx(2:N-1,j)*r*w
 
         call TRIDIAG(A_xi,B_xi,C_xi,D_xi,Fnj,N,1,N)
         Fx_n(:,j) = Fnj
@@ -180,7 +182,7 @@ MODULE mathmod
       D_eta = 0.
       Cni   = 0.
 
-      do i = 2,N-1
+      do i = 1,N
         call calc_A_eta(gama,i,A_eta)
         call calc_B_eta(gama,r,i,B_eta)
         call calc_C_eta(gama,i,C_eta)
@@ -321,7 +323,6 @@ MODULE mathmod
 
       real,dimension(:,:),intent(inout) :: Lx
 
-      real,dimension(:,:),allocatable :: X_local
 
       integer     :: I,J
       integer     :: N,M
@@ -331,22 +332,19 @@ MODULE mathmod
       N = size(X,1)
       M = size(X,2)
 
-      allocate(X_local(N,M))
-
-      Lx = 0.
+      Lx = 0
 
       do i = 2,N-1
         do j = 2,M-1
-          Lx(i,j) = alpha(i,j) * (calc_2nd_diff(X_local,i,j,1) + phi(i,j) * &
-                    &calc_diff(X_local,i,j,1) ) &
-                    &- beta(i,j)/2. * (X_local(i+1,j+1) - X_local(i+1,j-1) &
-                    &- X_local(i-1,j+1) - X_local(i-1,j-1) ) &
-                    &+ gama(i,j) * (calc_2nd_diff(X_local,i,j,2) + psi(i,j) * &
-                    &calc_diff(X_local,i,j,2) )
+          Lx(i,j) = alpha(i,j) * (calc_2nd_diff(X,i,j,1) + phi(i,j) *&
+                    &calc_diff(X,i,j,1) ) &
+                    &- beta(i,j)/2. * (X(i+1,j+1) - X(i+1,j-1) &
+                    &- X(i-1,j+1) - X(i-1,j-1) ) &
+                    &+ gama(i,j) * (calc_2nd_diff(X,i,j,2) + psi(i,j) *&
+                    &calc_diff(X,i,j,2) )
         end do
       end do
 
-      deallocate(X_local)
     end subroutine
 
   subroutine Init_GRID(X,Y,run_p) 
@@ -528,9 +526,18 @@ MODULE mathmod
     real,dimension(:,:),intent(INOUT) :: beta
     real,dimension(:,:),intent(INOUT) :: gama
 
-    alpha = x_eta**2 + y_eta**2
-    beta  = x_xi*x_eta + y_xi*y_eta
-    gama  = x_xi**2 + y_xi**2
+    integer :: I,J,N,M
+
+    N = size(x_xi,1)
+    M = size(x_xi,2)
+
+    do i=1,N
+      do j=1,M
+        alpha(i,j) = x_eta(i,j)*x_eta(i,j) + y_eta(i,j)*y_eta(i,j)
+        beta(i,j)  = x_xi(i,j)*x_eta(i,j) + y_xi(i,j)*y_eta(i,j)
+        gama(i,j)  = x_xi(i,j)*x_xi(i,j) + y_xi(i,j)*y_xi(i,j)
+      end do
+    end do
   end subroutine
 
   subroutine calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta)
@@ -574,7 +581,7 @@ MODULE mathmod
     ! calcualtes the first derivative in the 'dir' direction of 2d matrix X at
     ! location i,j please note that the function DOES NOT devide by dx or dy for
     ! simplicity. if needed, please devide outside the functio
-    real,dimension(:,:),intent(inout) :: X
+    real,dimension(:,:),intent(in) :: X
     integer,intent(IN) :: i,j
     integer,intent(IN) :: dir !may be 1 or 2
 
@@ -590,7 +597,7 @@ MODULE mathmod
     ! calculates the second derivative in the 'dir' direction of 2d matrix X at
     ! location i,j. Please note that the function DOES NOT devide by dx**2 or
     ! dy**2 for simplicity. if needed, please devide outside the function
-    real,dimension(:,:),intent(inout) :: X
+    real,dimension(:,:),intent(in) :: X
     integer,intent(IN) :: i,j
     integer,intent(IN) :: dir !may be 1 or 2
 

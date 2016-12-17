@@ -23,6 +23,7 @@ MODULE outmod
       do i=1,rundata%i_max
         write(outUnit,format_str),X(i,:)
       end do
+      write(outUnit,'(A)'),"Y"
       do i=1,rundata%i_max
         write(outUnit,format_str),Y(i,:)
       end do

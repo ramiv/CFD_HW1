@@ -57,7 +57,7 @@ MODULE mathmod
       
       ! first Init the grid
       call Init_GRID(X,Y,run_p)
-      do while ( cont_run .AND. (i_loop < 1000))
+      do while ( cont_run .AND. (i_loop < 10000))
         call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) 
         call calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI)
         call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama)
@@ -70,7 +70,7 @@ MODULE mathmod
           error1_x = error_X
           error1_y = error_Y
 
-          WRITE(outUnit_main,'(A)'),"N  Err_x  Err_y"
+          !WRITE(outUnit_main,'(A)'),"N  Err_x  Err_y"
         end if
 
         call solve_eta_eq(gama,case_p%r,Fx_n,Cx_n)
@@ -88,9 +88,9 @@ MODULE mathmod
         end if
 
         if (mod(i_loop,outMod) == 0) THEN
-          write(outUnit_main,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
-          !write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
-          write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, error_x,error_y
+          !write(outUnit_main,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
+          write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
+          !write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, error_x,error_y
         end if
 
         i_loop = i_loop + 1
@@ -98,7 +98,6 @@ MODULE mathmod
 
       ! now export it out to
       call write_XY(outUnit_main,X,Y,run_p)
-      write(outUnit_main,'(A)'),''
       close(unit=outUnit_main)
 
       deallocate(X,Y)
@@ -138,8 +137,10 @@ MODULE mathmod
       Fnj = BAD_REAL
       Lx = BAD_REAL
 
+      D_xi = 0.
+
       call calc_Lx(X,alpha,beta,gama,phi,psi,Lx)
-      do j = 1,M
+      do j = 2,M-1
         call calc_A_xi(alpha,j,A_xi)
         call calc_B_xi(alpha,r,j,B_xi)
         call calc_C_xi(alpha,j,C_xi)
@@ -172,8 +173,8 @@ MODULE mathmod
       real,dimension(:),allocatable :: A_eta,B_eta,C_eta,D_eta,Cni
       integer :: I,N,M
 
-      N = size(Fx_n,1)
-      M = size(Fx_n,2)
+      N = size(gama,1)
+      M = size(gama,2)
 
       Cx_n = 0.
 
@@ -182,7 +183,7 @@ MODULE mathmod
       D_eta = 0.
       Cni   = 0.
 
-      do i = 1,N
+      do i = 2,N-1
         call calc_A_eta(gama,i,A_eta)
         call calc_B_eta(gama,r,i,B_eta)
         call calc_C_eta(gama,i,C_eta)
@@ -336,12 +337,12 @@ MODULE mathmod
 
       do i = 2,N-1
         do j = 2,M-1
-          Lx(i,j) = alpha(i,j) * (calc_2nd_diff(X,i,j,1) + phi(i,j) *&
-                    &calc_diff(X,i,j,1) ) &
+          Lx(i,j) = alpha(i,j) * (X(i+1,j) -2.0*X(i,j) + X(i-1,j) + phi(i,j) *&
+                    &(X(i+1,j)-X(i-1,j))/2. ) &
                     &- beta(i,j)/2. * (X(i+1,j+1) - X(i+1,j-1) &
-                    &- X(i-1,j+1) - X(i-1,j-1) ) &
-                    &+ gama(i,j) * (calc_2nd_diff(X,i,j,2) + psi(i,j) *&
-                    &calc_diff(X,i,j,2) )
+                    &- X(i-1,j+1) + X(i-1,j-1) ) &
+                    &+ gama(i,j) * (X(i,j+1) - 2.*X(i,j) + X(i,j-1) + psi(i,j) *&
+                    &(X(i,j+1) - X(i,j-1) )/2. )
         end do
       end do
 

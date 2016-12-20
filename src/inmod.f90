@@ -14,6 +14,7 @@ MODULE inmod
     real      :: dy            ! the y difference near the wall
     real      :: XSF           ! streach in X direction parameter
     real      :: YSF           ! streach in Y direction parameter
+
   end type 
 
   type CaseParms
@@ -24,8 +25,10 @@ MODULE inmod
     real      :: r            ! relaxation parameter
 
     real   :: eps          ! portion between the last and first errors 
-    character(len=300) ::  output_path
+    character(len=300) :: path_XY
+    character(len=300) :: path_Err
   end type
+
 
 contains
 
@@ -109,6 +112,8 @@ contains
       WRITE(*,*),"Could not read %rundata namelist 'YSF' variable, please check input!"
     end if
 
+
+
     if (badInp) THEN
       close(unit=iUnit)
       CALL EXIT()
@@ -144,9 +149,10 @@ contains
     real      :: w    = BAD_REAL        ! relaxation parameter
     real      :: r    = BAD_REAL        ! relaxation parameter
     real      :: eps  = BAD_REAL        ! relaxation parameter
-    character(len=300) ::  output_path = ''
+    character(len=300) :: path_XY = ''     ! the path to export the XY data
+    character(len=300) :: path_Err = ''    ! the path to export the error
 
-    namelist /casedata/isPHY,isPSI,w,r,eps,output_path
+    namelist /casedata/isPHY,isPSI,w,r,eps,path_XY,path_Err
 
     read(unit=iUnit,nml=casedata,IOSTAT=ISTAT) ! read the namelist
 
@@ -175,11 +181,17 @@ contains
       WRITE(*,*),"eps read = ",eps
     end if
 
-    if (output_path == '' ) THEN
+
+    if (path_XY == '' ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %casedata namelist 'output_path' variable, please check input!"
-      WRITE(*,*),"output_path read = ",output_path
+      WRITE(*,*),"Could not read %rundata namelist 'path_XY' variable, please check input!"
     end if
+
+    if (path_Err == '' ) THEN
+      badInp = .TRUE.
+      WRITE(*,*),"Could not read %rundata namelist 'path_Err' variable, please check input!"
+    end if
+
 
     if (badInp) then
       close(unit=iUnit)
@@ -191,7 +203,33 @@ contains
   parms%r           = r
   parms%w           = w
   parms%eps         = eps
-  parms%output_path = output_path
+  parms%path_XY     = path_XY      
+  parms%path_Err    = path_Err      
 
   END SUBROUTINE readCaseParms
+
+  logical function get_next_filename(funit_main,nextFile)
+    integer,intent(inout) :: funit_main
+    character(len=300),intent(out) :: nextFile
+    character(len=1)  :: firstChar
+      
+    integer   :: ISTAT = 0
+
+    get_next_filename = .False.
+    
+
+    do while ( (ISTAT == 0) .AND. (.NOT. get_next_filename) ) 
+      read(funit_main,'(A)',IOSTAT=ISTAT),nextfile
+      if (ISTAT == 0) THEN
+        nextfile = TRIM(ADJUSTL(nextfile))
+        firstChar = nextfile(1:1)
+        if (firstChar /= "!" .AND. firstChar /= "") THEN
+          get_next_filename = .TRUE.
+        end if
+      end if
+    end do
+
+
+  end function
+
 END MODULE inmod

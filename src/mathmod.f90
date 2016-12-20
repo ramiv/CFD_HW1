@@ -40,7 +40,8 @@ MODULE mathmod
       logical :: cont_run = .TRUE.
       integer :: N,M
       integer :: i_loop = 1
-      integer :: outUnit_main
+      integer :: outUnit_XY = 20
+      integer :: outUnit_Err = 25
       integer :: outMod = 1
 
       N = run_p%i_max
@@ -52,7 +53,9 @@ MODULE mathmod
       allocate(PHI(N,M),PSI(N,M),Cx_n(N,M),Cy_n(N,M),Fx_n(N,M),Fy_n(N,M))
       allocate(alpha(N,M),beta(N,M),gama(N,M))
 
-      open(unit=outUnit_main,file=case_p%output_path,&
+      open(unit=outUnit_XY,file=case_p%path_XY,&
+           &STATUS='REPLACE',FORM='FORMATTED')
+      open(unit=outUnit_Err,file=case_p%path_Err,&
            &STATUS='REPLACE',FORM='FORMATTED')
       
       ! first Init the grid
@@ -70,7 +73,7 @@ MODULE mathmod
           error1_x = error_X
           error1_y = error_Y
 
-          !WRITE(outUnit_main,'(A)'),"N  Err_x  Err_y"
+          WRITE(outUnit_Err,'(A)'),"N  Err_x  Err_y"
         end if
 
         call solve_eta_eq(gama,case_p%r,Fx_n,Cx_n)
@@ -78,7 +81,6 @@ MODULE mathmod
 
         X = (X + Cx_n)
         Y = (Y + Cy_n)
-        !call write_XY(outUnit_main,Cx_n,Cy_n,run_p)
 
         partial_error_x = log10(error_X)-log10(error1_X)
         partial_error_y = log10(error_Y)-log10(error1_Y)
@@ -88,17 +90,17 @@ MODULE mathmod
         end if
 
         if (mod(i_loop,outMod) == 0) THEN
-          !write(outUnit_main,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
+          write(outUnit_Err,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
           write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
-          !write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, error_x,error_y
         end if
 
         i_loop = i_loop + 1
       end do
 
       ! now export it out to
-      call write_XY(outUnit_main,X,Y,run_p)
-      close(unit=outUnit_main)
+      call write_XY(outUnit_XY,X,Y,run_p)
+      close(unit=outUnit_XY)
+      close(unit=outUnit_Err)
 
       deallocate(X,Y)
       deallocate(Lx,Ly)

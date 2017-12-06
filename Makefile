@@ -1,46 +1,53 @@
-SRC_Folder = src
-MOD_Folder = mod
+FC=gfortran
+#FCFLAGS= -g -Wall -fdefault-real-8 -ffree-line-length-0 -fbacktrace
+FCFLAGS= -g -fdefault-real-8 -ffree-line-length-0 -fbacktrace
+OUTNAME = HW1.exe
 
+SRCFILES_1 = $(wildcard src/*.f90)
+SRCFILES = $(SRCFILES_1:src/%=%)
 
-FC = gfortran
-FCFLAGS = -g -Wall -fdefault-real-8 -ffree-line-length-0 -fbacktrace
-MODFLAG = -J
-INCFLAG = -I
+#obj files
+OBJFILES = $(SRCFILES:.f90=.o)
 
+OBJDIR = obj
+SRCDIR = src
 
+.PHONY: all
 
-target_try = try
-target_all = HW1
+all: $(OBJDIR) $(OUTNAME) TAGS
 
+TAGS: 
+	ctags -R -f .
 
-help:
-	@echo "$(SRC_Folder)"
-	@echo "$(MOD_Folder)"
-	@echo "$(MOD_Folder)/%.o:"
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
-all: $(target_all)
+$(OUTNAME): $(OBJFILES)
+	@echo obj:$(OBJFILES)
+	$(FC) $(FCFLAGS) -o $(OUTNAME) -I$(OBJDIR) -J$(OBJDIR) $(addprefix $(OBJDIR)/,$(OBJFILES))
 
+HW1.o: HW1.f90 inmod.o mathmod.o
 
-$(target_try):	$(MOD_Folder)/tryMods.o
-	$(FC) -o $@  $< $(MOD_Folder)/inmod.o $(MOD_Folder)/outmod.o $(MOD_Folder)/mathmod.o $(MODFLAG)$(MOD_Folder) 
-	ctags -R .
+mathmod.o: mathmod.f90 inmod.o outmod.o diagal.o
 
-$(target_all):	$(MOD_Folder)/HW1.o
-	$(FC) -o $@  $< $(MOD_Folder)/inmod.o $(MOD_Folder)/outmod.o $(MOD_Folder)/mathmod.o $(MOD_Folder)/diagal.o $(INCFLAG)$(MOD_Folder) $(MODFLAG)$(MOD_Folder) 
-	ctags -R .
+inmod.o: inmod.f90
 
-# Default Rule
-$(MOD_Folder)/%.o: $(SRC_Folder)/%.f90
-	$(FC) -c $(FCFLAGS) $(INCFLAG)$(MOD_Folder) $(MODFLAG)$(MOD_Folder) $< -o $@
+outmod.o: outmod.f90 inmod.o
 
-$(MOD_Folder)/tryMods.o: $(MOD_Folder)/inMod.o $(MOD_Folder)/outMod.o $(MOD_Folder)/mathmod.o
+%.mod: %.f90
+	@echo compiling obj
+	@echo target= $@
+	@echo srcs = $<
+	$(FC) $(FCFLAGS) -I$(OBJDIR) -J$(OBJDIR) -o $(OBJDIR)/$($@:mod=.o) -c $<
+%.o: %.f90
+	$(FC) $(FCFLAGS) -I$(OBJDIR) -J$(OBJDIR) -o $(OBJDIR)/$@ -c $<
 
-$(MOD_Folder)/HW1.o: $(MOD_Folder)/inMod.o $(MOD_Folder)/mathmod.o
+%.f90:
+	@echo compiling src
+	@echo target= $@
+	@echo output $(addprefix $(OBJDIR)/,$($@:.f90=.o))
+	$(FC) $(FCFLAGS) -I$(OBJDIR) -J$(OBJDIR) -o $(addprefix $(OBJDIR)/,$($@:.f90=.o)) -c $@
 
-$(MOD_Folder)/outmod.o: $(MOD_Folder)/inMod.o 
-$(MOD_Folder)/mathmod.o: $(MOD_Folder)/inMod.o $(MOD_Folder)/diagal.o $(MOD_Folder)/outMod.o 
-
-.PHONY:	clean
-
-clean:
-	rm -f $(target_try).exe $(MOD_Folder)/*.o $(MOD_Folder)/*.mod
+vpath %.f90 $(SRCDIR)
+vpath %.o $(OBJDIR)
+vpath %.mod $(OBJDIR)

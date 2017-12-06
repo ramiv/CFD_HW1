@@ -31,7 +31,7 @@ program HW1
 
   ! if unsuccessful in opening exit run
   if (ISTAT > 0) THEN
-    WRITE(*,*), "Couldn't read" ,path_in_file
+    WRITE(*,*) "Couldn't read" ,path_in_file
     CALL EXIT()
   end if
 
@@ -43,7 +43,7 @@ program HW1
 
     ! if unsuccessfull exit run
     if (ISTAT > 0) THEN
-      WRITE(*,*), "Couldn't read" ,sec_input
+      WRITE(*,*) "Couldn't read" ,sec_input
       close(unit=inUnit_main)
       CALL EXIT()
     end if
@@ -54,7 +54,7 @@ program HW1
     CALL readCaseParms(inUnit_case,case_p)
 
     ! solve for this case and export the ouptuts to the files
-    CALL step(case_p,run_p)
+    CALL gen_grid(case_p,run_p)
     ! read next file
     continue_run = get_next_filename(inUnit_main,sec_input)
     close(unit=inUnit_case)

@@ -15,7 +15,7 @@ MODULE mathmod
   real,parameter :: pi = acos(-1.0)
   contains
 
-    subroutine step(case_p,run_p)
+    subroutine gen_grid(case_p,run_p)
     ! master subroutine of the solution
     ! INPUT:
     !     run_p - run parameters structure
@@ -46,6 +46,8 @@ MODULE mathmod
       integer :: outUnit_Err = 25! Err output file unit number
       integer :: outMod = 1 ! determins how often the error is prined.
 
+      integer :: testMeshUnit = 15 ! unit for test the meshes
+
       N = run_p%i_max
       M = run_p%j_max
 
@@ -64,9 +66,14 @@ MODULE mathmod
            &STATUS='REPLACE',FORM='FORMATTED')
       open(unit=outUnit_Err,file=case_p%path_Err,&
            &STATUS='REPLACE',FORM='FORMATTED')
+
+      open(unit=testMeshUnit,file='testmesh.txt',&
+           &STATUS='REPLACE',FORM='FORMATTED')
       
       ! first Init the grid
       call Init_GRID(X,Y,run_p)
+      call write_XY(testMeshUnit,X,Y,run_p) 
+      close(UNIT=testMeshUnit)
 
       ! run while cont_run is TRUE and under 10,000 loops
       do while ( cont_run .AND. (i_loop < 10000))
@@ -83,7 +90,7 @@ MODULE mathmod
           error1_x = error_X
           error1_y = error_Y
 
-          WRITE(outUnit_Err,'(A)'),"N  Err_x  Err_y"
+          WRITE(outUnit_Err,'(A)') "N  Err_x  Err_y"
         end if
 
         ! solve the equation in the eta direction for X and Y
@@ -104,8 +111,8 @@ MODULE mathmod
 
         ! write the current error to the file and screen (for live conv results)
         if (mod(i_loop,outMod) == 0) THEN
-          write(outUnit_Err,'(1X,I6,2(1X,E15.7))'),i_loop,partial_error_x,partial_error_y
-          write(*,'(A,I6,2(1X,E15.7))'),"N =",i_loop, partial_error_x,partial_error_y
+          write(outUnit_Err,'(1X,I6,2(1X,E15.7))') i_loop,partial_error_x,partial_error_y
+          write(*,'(A,I6,2(1X,E15.7))') "N =",i_loop, partial_error_x,partial_error_y
         end if
 
         i_loop = i_loop + 1 ! update the loop index
@@ -123,7 +130,7 @@ MODULE mathmod
       deallocate(X_xi,Y_xi,X_eta,Y_eta)
       deallocate(PHI,PSI,Cx_n,Cy_n,Fx_n,Fy_n)
       deallocate(alpha,beta,gama)
-    end subroutine
+    end subroutine gen_grid
 
     subroutine solve_Xi_eq(alpha,beta,gama,phi,psi,r,w,X,Fx_n,error)
       ! sub for solving in xi direction either X or Y equation. Gets alpha,r,w,X
@@ -518,10 +525,10 @@ MODULE mathmod
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ! stright part is the same as the wake, only at differnt Y value
-    do i=1,run_p%I_LE
-      X(i,run_p%J_MAX) = X(i,1)
-      Y(i,run_p%J_MAX) = Y(1,run_p%J_MAX)
-    end do
+    !do i=1,run_p%I_LE
+    !  X(i,run_p%J_MAX) = X(i,1)
+    !  Y(i,run_p%J_MAX) = Y(1,run_p%J_MAX)
+    !end do
 
     R    = ABS(Y(1,run_p%j_max))
     Xmax = ABS(X(1,1))
@@ -531,6 +538,7 @@ MODULE mathmod
 
     i0 = floor(Xmax/ds) + 1
 
+    ! stright part is the same as the wake, only at differnt Y value
     ! lower part
     do i=2,i0
       Y(i,run_p%j_max) = -R
@@ -538,7 +546,7 @@ MODULE mathmod
     end do
 
     theta0 = (pi/2. + atan(Y(i0,run_p%j_max)/X(i0,run_p%j_max)))
-    theta_front = pi+2.*theta0
+    theta_front = pi + 2.*theta0
 
     Lfront = R*pi + 2.*abs(X(i0,run_p%j_max))
     Nfront = NINT(Lfront/ds)
@@ -590,8 +598,8 @@ MODULE mathmod
     if (case_p%isPSI) THEN
       ! for xi = 1,N
       do i=1,N,(N-1)
-        do j=2,M-1
-          ! BC on xi = 1
+        do j=1,M
+          ! BC on xi min/max
           if ( abs(y_eta(i,j)) >= abs(x_eta(i,j)) ) THEN
             PSI(i,j) = - (calc_2nd_diff(Y,i,j,2))/(calc_diff(Y,i,j,2))
           else
@@ -604,7 +612,7 @@ MODULE mathmod
 
     if (case_p%isPHY) THEN
       do j=1,M,(M-1)
-        do i=2,N-1
+        do i=1,N
           ! BC on eta = 1
           if (abs(x_xi(i,j)) >= abs(y_xi(i,j) ) ) THEN
             PHI(i,j) = - (calc_2nd_diff(X,i,j,1)) / (calc_diff(X,i,j,1))
@@ -614,6 +622,7 @@ MODULE mathmod
         end do
       end do
       call interp2Dmat_eta(PHI)
+      !call interp2Dmat_xi(PHI)
     end if
   end subroutine
 
@@ -744,7 +753,8 @@ MODULE mathmod
       X0 = X(i,1)
       Xmax = X(i,M)
       do j=2,M-1
-        X(i,j) = X0*(M-j)/M + Xmax*j/M
+        !X(i,j) = X0*(M-j)/M + Xmax*j/M
+        X(i,j) = X0 + (Xmax - X0)*(j-1)/(M-1)
       end do
     end do
   end subroutine
@@ -766,7 +776,8 @@ MODULE mathmod
       X0 = X(1,j)
       Xmax = X(N,j)
       do i=2,N-1
-        X(i,j) = X0*(N-i)/N + Xmax*i/N
+        !X(i,j) = X0*(N-i)/N + Xmax*i/N
+        X(i,j) = X0 + (Xmax - X0)*(i-1)/(N-1)
       end do
     end do
   end subroutine

@@ -75,10 +75,14 @@ MODULE mathmod
       call write_XY(testMeshUnit,X,Y,run_p) 
       close(UNIT=testMeshUnit)
 
+      ! Define the control functions one time in the solution scheme
+      call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) ! calculate the X,Y Drivs
+      call calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI) ! calc phi and psi control function
+
+
       ! run while cont_run is TRUE and under 10,000 loops
       do while ( cont_run .AND. (i_loop < 10000))
         call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) ! calculate the X,Y Drivs
-        call calc_control_func(X,Y,x_xi,x_eta,y_xi,y_eta,case_p,PHI,PSI) ! calc phi and psi control function
         call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama) ! calc alpha,beta,gama
 
         ! solve the equation in the xi direction for X and Y

@@ -136,6 +136,10 @@ MODULE mathmod
       deallocate(alpha,beta,gama)
     end subroutine gen_grid
 
+    subroutine step()
+
+    end subroutine step
+
     subroutine solve_Xi_eq(alpha,beta,gama,phi,psi,r,w,X,Fx_n,error)
       ! sub for solving in xi direction either X or Y equation. Gets alpha,r,w,X
       ! and returns the Fx_n matrix and the error as defined

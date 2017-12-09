@@ -30,10 +30,7 @@ MODULE mathmod
       real,dimension(:,:),allocatable :: X,Y
       real,dimension(:,:),allocatable :: X_xi,X_eta,Y_xi,Y_eta ! the derivs
       real,dimension(:,:),allocatable :: PHI,PSI ! the control functions
-      real,dimension(:,:),allocatable :: alpha,beta,gama ! factor matrecies
-      real,dimension(:,:),allocatable :: Cx_n,Fx_n ! the solutions of the two eq in x
-      real,dimension(:,:),allocatable :: Cy_n,Fy_n ! the solutions of the two eq in y
-      real,dimension(:,:),allocatable :: Lx,Ly ! the RHS operator Lx and Ly
+      real,dimension(:,:),allocatable :: dX,dY ! the solutions of the two eq in x
 
       real    :: error1_x = BAD_REAL ! the error of the first iteration in x
       real    :: error1_y = BAD_REAL ! the error of the first iteration in y
@@ -56,10 +53,8 @@ MODULE mathmod
 
       ! allocate the matrecies
       allocate(X(N,M),Y(N,M))
-      allocate(Lx(N,M),Ly(N,M))
       allocate(X_xi(N,M),Y_xi(N,M),X_eta(N,M),Y_eta(N,M))
-      allocate(PHI(N,M),PSI(N,M),Cx_n(N,M),Cy_n(N,M),Fx_n(N,M),Fy_n(N,M))
-      allocate(alpha(N,M),beta(N,M),gama(N,M))
+      allocate(PHI(N,M),PSI(N,M),dX(N,M),dY(N,M))
 
       ! open both output files
       open(unit=outUnit_XY,file=case_p%path_XY,&
@@ -82,12 +77,10 @@ MODULE mathmod
 
       ! run while cont_run is TRUE and under 10,000 loops
       do while ( cont_run .AND. (i_loop < 10000))
+        
         call calc_metrics(X,Y,X_xi,X_eta,Y_xi,Y_eta) ! calculate the X,Y Drivs
-        call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama) ! calc alpha,beta,gama
-
-        ! solve the equation in the xi direction for X and Y
-        call solve_Xi_eq(alpha,beta,gama,PHI,PSI,case_p%r,case_p%w,X,Fx_n,error_X)
-        call solve_Xi_eq(alpha,beta,gama,PHI,PSI,case_p%r,case_p%w,Y,Fy_n,error_Y)
+        call step(case_p,run_p,X,Y,X_xi,X_eta,Y_xi,Y_eta,PHI,PSI,&
+                dX,dY,error_X,error_Y)
 
         ! write the error file header and save the first errors
         if (i_loop == 1) THEN
@@ -97,17 +90,14 @@ MODULE mathmod
           WRITE(outUnit_Err,'(A)') "N  Err_x  Err_y"
         end if
 
-        ! solve the equation in the eta direction for X and Y
-        call solve_eta_eq(gama,case_p%r,Fx_n,Cx_n)
-        call solve_eta_eq(gama,case_p%r,Fy_n,Cy_n)
 
         ! update X and Y and add the differences
-        X = (X + Cx_n)
-        Y = (Y + Cy_n)
+        X = (X + dX)
+        Y = (Y + dY)
 
         ! calculate the current errors and check if converged
-        partial_error_x = log10(error_X)-log10(error1_X)
-        partial_error_y = log10(error_Y)-log10(error1_Y)
+        partial_error_x = error_X-error1_X
+        partial_error_y = error_Y-error1_Y
 
         if ((partial_error_x < case_p%eps) .AND. (partial_error_y < case_p%eps)) THEN
           cont_run = .FALSE.
@@ -130,63 +120,93 @@ MODULE mathmod
 
       ! deallocate all the matrecies which we allocated before
       deallocate(X,Y)
-      deallocate(Lx,Ly)
       deallocate(X_xi,Y_xi,X_eta,Y_eta)
-      deallocate(PHI,PSI,Cx_n,Cy_n,Fx_n,Fy_n)
-      deallocate(alpha,beta,gama)
+      deallocate(PHI,PSI,dX,dY)
     end subroutine gen_grid
 
-    subroutine step()
+    ! subroutine for calculating the current step of the solution
+    subroutine step(case_p,run_p,X,Y,X_xi,X_eta,Y_xi,Y_eta,PHI,PSI, &
+       dX,dY,Er_x,Er_y)
+      
+     ! Inputs: 
+      type(CaseParms),intent(in)          :: case_p
+      type(RunParms),intent(in)           :: run_p
+      real,dimension(:,:),intent(in)  :: X,Y
+      real,intent(in),dimension(:,:) :: X_xi,X_eta,Y_xi,Y_eta ! the derivs
+      real,intent(in),dimension(:,:) :: PHI,PSI ! the control functions
 
+     ! outputs:
+     real,intent(inout),dimension(:,:) :: dX,dY !decleared outside of the sub
+     real,intent(out) :: Er_x ! The error is in logarithmic form
+     real,intent(out) :: Er_y ! The error is in logarithmic form
+
+     ! Sub variables:
+      real,dimension(:,:),allocatable :: alpha,beta,gama ! factor matrecies
+      integer :: N,M
+
+
+      N = run_p%i_max
+      M = run_p%j_max
+      allocate(alpha(N,M),beta(N,M),gama(N,M))
+
+      Er_x = BAD_REAL
+      Er_y = BAD_REAL
+
+        call calc_coef(x_xi,x_eta,y_xi,y_eta,alpha,beta,gama) ! calc alpha,beta,gama
+        ! Put Lx=>dX and Ly=>dY
+        call calc_Lx(X,alpha,beta,gama,PHI,PSI,dX)
+        call calc_Lx(Y,alpha,beta,gama,PHI,PSI,dY)
+
+        Er_x = log10(calc_error(dX))
+        Er_y = log10(calc_error(dY))
+
+        ! Sweep X
+        call solve_Xi_eq(alpha,case_p%r,case_p%w,dX)
+        call solve_Xi_eq(alpha,case_p%r,case_p%w,dY)
+
+        ! Sweep Y
+        call solve_eta_eq(gama,case_p%r,dX)
+        call solve_eta_eq(gama,case_p%r,dY)
+
+
+      deallocate(alpha,beta,gama)
     end subroutine step
 
-    subroutine solve_Xi_eq(alpha,beta,gama,phi,psi,r,w,X,Fx_n,error)
+    subroutine solve_Xi_eq(alpha,r,w,L)
       ! sub for solving in xi direction either X or Y equation. Gets alpha,r,w,X
       ! and returns the Fx_n matrix and the error as defined
       ! Log10(Max(Abs(Lx)))
       real,dimension(:,:),intent(in)   :: alpha ! alpha factor matrix
-      real,dimension(:,:),intent(in)   :: beta  ! beta  factor matrix
-      real,dimension(:,:),intent(in)   :: gama  ! gama  factor matrix
-      real,dimension(:,:),intent(in)   :: phi,psi ! phi and psi control func
-      real,dimension(:,:),intent(in)   :: X     ! the current solution matrix,used for Lx calculation
-      real,dimension(:,:),intent(inout)  :: Fx_n ! the soluton matrix
+      real,dimension(:,:),intent(inout)  :: L ! in the start, L equals Lx, in the end, it is equals to the solution Fx_n..
       real,intent(in)   :: r,w ! relaxation parameters 
-      real,intent(out)    :: error ! the error Lx of the current iteration
 
       real,dimension(:),allocatable :: A_xi,B_xi,C_xi,D_xi ! A,B,C vectors of sol
       real,dimension(:),allocatable :: Fnj ! the solution for the j index
-      real,dimension(:,:),allocatable :: Lx ! the RHS Lx
       integer :: J,N,M ! help indexes for index and matrix size
 
       ! get the matrix size
-      N = size(X,1)
-      M = size(X,2)
+      N = size(alpha,1)
+      M = size(alpha,2)
 
-      ! init Fx_n
-      Fx_n = BAD_REAL
 
       ! allocate the matrecies
       allocate(A_xi(N),B_xi(N),C_xi(N),D_xi(N))
       allocate(Fnj(N))
-      allocate(Lx(N,M))
 
       ! init Fnj, Lx and D
       Fnj = BAD_REAL
-      Lx = BAD_REAL
       D_xi = 0.
 
-      call calc_Lx(X,alpha,beta,gama,phi,psi,Lx) ! calc Lx for RHS
       do j = 2,M-1
         call calc_A_xi(alpha,j,A_xi) ! calculate the A vector
         call calc_B_xi(alpha,r,j,B_xi) ! calculate the B vector
         call calc_C_xi(alpha,j,C_xi) ! calculate the C vector
-        D_xi(2:N-1) = Lx(2:N-1,j)*r*w ! calculate the D vector using Lx, D in i=1,imax = 0
+        D_xi(2:N-1) = L(2:N-1,j)*r*w ! calculate the D vector using Lx, D in i=1,imax = 0
 
         ! get solution for this j index  using tri-diagonal 
         call TRIDIAG(A_xi,B_xi,C_xi,D_xi,Fnj,N,1,N)
-        Fx_n(:,j) = Fnj ! update the output solution matrix for the current j index
+        L(:,j) = Fnj ! update the output solution matrix for the current j index
       end do
-      error = calc_error(Lx) ! calculate the error of all the Lx matrix
 
       ! deallocate the previously allocated matrecies
       deallocate(A_xi)
@@ -194,17 +214,15 @@ MODULE mathmod
       deallocate(C_xi)
       deallocate(D_xi)
       deallocate(Fnj)
-      deallocate(Lx)
 
     end subroutine
 
-    subroutine solve_eta_eq(gama,r,Fx_n,Cx_n)
+    subroutine solve_eta_eq(gama,r,L)
       ! sub for solving in eta direction either X or Y equation. Gets alpha,r,w,X
       ! and returns the Cx_n matrix 
       real,dimension(:,:),intent(in)   :: gama ! gama factor matrix
       real,intent(in)   :: r ! relaxation factor 
-      real,dimension(:,:),intent(in)  :: Fx_n ! RHS of the equation
-      real,dimension(:,:),intent(inout)  :: Cx_n ! solution matrix
+      real,dimension(:,:),intent(inout)  :: L ! In the start, L is equal to the Fx, in the end it is Cx
 
       real,dimension(:),allocatable :: A_eta,B_eta,C_eta,D_eta,Cni ! the A,B,C,D
       ! Vectors and the solution of the ith index
@@ -214,7 +232,6 @@ MODULE mathmod
       N = size(gama,1)
       M = size(gama,2)
 
-      Cx_n = 0. ! initiate the output matrix
 
       ! allocate the "working" vectors
       allocate(A_eta(M),B_eta(M),C_eta(M),D_eta(M),Cni(M))
@@ -228,12 +245,12 @@ MODULE mathmod
         call calc_A_eta(gama,i,A_eta)   ! calculate A vector
         call calc_B_eta(gama,r,i,B_eta) ! calculate B vector
         call calc_C_eta(gama,i,C_eta)   ! calculate C vector
-        D_eta(2:M-1) = Fx_n(i,2:M-1)    ! calculate D vector, in i=1,i_max D=0
+        D_eta(2:M-1) = L(i,2:M-1)    ! calculate D vector, in i=1,i_max D=0
 
         ! solve for this i index using tri-diagonal solver
         call TRIDIAG(A_eta,B_eta,C_eta,D_eta,Cni,M,1,M)
         ! put the current row result into the output matrix Cx_n
-        Cx_n(i,:) = Cni
+        L(i,:) = Cni
       end do
 
       ! deallocate the matrecies 

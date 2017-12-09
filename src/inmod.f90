@@ -65,7 +65,7 @@ contains
 
     ! if couldn't find the namelist , exit
     IF (ISTAT > 0) THEN
-      WRITE(*,*),"Could not read %rundata namelist, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist, please check input!"
       close(unit=iUnit)
       call EXIT()
     end if
@@ -74,47 +74,47 @@ contains
     
     if (t_profile == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 't_profile' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 't_profile' variable, please check input!"
     end if
 
     if (i_max == BAD_INT ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'i_max' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'i_max' variable, please check input!"
     end if
 
     if (j_max == BAD_INT) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'j_max' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'j_max' variable, please check input!"
     end if
 
     if (i_TEL == BAD_INT ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'i_TEL' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'i_TEL' variable, please check input!"
     end if
 
     if (i_LE == BAD_INT ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'i_LE' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'i_LE' variable, please check input!"
     end if
 
     if (i_TEU == BAD_INT ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'i_TEU' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'i_TEU' variable, please check input!"
     end if
 
     if (dy == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'dy' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'dy' variable, please check input!"
     end if
 
     if (XSF == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'XSF' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'XSF' variable, please check input!"
     end if
 
     if (YSF == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'YSF' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'YSF' variable, please check input!"
     end if
 
 
@@ -164,7 +164,7 @@ contains
     read(unit=iUnit,nml=casedata,IOSTAT=ISTAT) ! read the namelist
 
     IF (ISTAT > 0) THEN
-      WRITE(*,*),"Could not read %casedata namelist, please check input!"
+      WRITE(*,*) "Could not read %casedata namelist, please check input!"
       close(unit=iUnit)
       call EXIT()
     end if
@@ -172,31 +172,31 @@ contains
 
     if (w == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %casedata namelist 'w' variable, please check input!"
-      WRITE(*,*),"w read = ",w
+      WRITE(*,*) "Could not read %casedata namelist 'w' variable, please check input!"
+      WRITE(*,*) "w read = ",w
     end if
 
     if (r == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %casedata namelist 'r' variable, please check input!"
-      WRITE(*,*),"r read = ",r
+      WRITE(*,*) "Could not read %casedata namelist 'r' variable, please check input!"
+      WRITE(*,*) "r read = ",r
     end if
 
     if (eps == BAD_REAL ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %casedata namelist 'eps' variable, please check input!"
-      WRITE(*,*),"eps read = ",eps
+      WRITE(*,*) "Could not read %casedata namelist 'eps' variable, please check input!"
+      WRITE(*,*) "eps read = ",eps
     end if
 
 
     if (path_XY == '' ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'path_XY' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'path_XY' variable, please check input!"
     end if
 
     if (path_Err == '' ) THEN
       badInp = .TRUE.
-      WRITE(*,*),"Could not read %rundata namelist 'path_Err' variable, please check input!"
+      WRITE(*,*) "Could not read %rundata namelist 'path_Err' variable, please check input!"
     end if
 
 
@@ -235,7 +235,7 @@ contains
 
     ! while the read was OK and didn't find valid input
     do while ( (ISTAT == 0) .AND. (.NOT. get_next_filename) ) 
-      read(funit_main,'(A)',IOSTAT=ISTAT),nextfile ! read the next line
+      read(funit_main,'(A)',IOSTAT=ISTAT) nextfile ! read the next line
       if (ISTAT == 0) THEN                    ! if read was OK
         nextfile = TRIM(ADJUSTL(nextfile))    ! trim the spaces
         firstChar = nextfile(1:1)             ! the first char

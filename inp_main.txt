@@ -1,0 +1,7 @@
+! Main input file.
+! Checks control function effects:
+
+basic_no_control.txt
+basic_phi.txt
+basic_psi.txt
+basic_both.txt

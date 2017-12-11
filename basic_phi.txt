@@ -1,0 +1,21 @@
+&rundata
+t_profile = .12,    !profile width
+i_max     = 51,     ! max index in xi direction
+j_max     = 26,     ! max index in eta direction      
+i_TEL     = 12,     ! index of the lower trailing edge
+i_LE      = 26,     ! index of the leading edge       
+i_TEU     = 40,     ! index of the Upper trailing edge
+dy        = .02,    ! the y difference near the wall   
+XSF       = 1.15,   ! streach in X direction parameter
+YSF       = 1.15/   ! streach in Y direction parameter
+
+
+&casedata
+isPHY    = T,      ! logical which tells if PHY control function is used
+isPSI    = F,      ! logical which tells if PSI control hfunction is used
+w        = 1.5,    ! relaxation parameter
+r        = 0.01,   ! relaxation parameter
+eps = -6.,
+path_XY = 'output/NACA0012_basic_phi_XY.out',
+path_Err= 'output/NACA0012_basic_phi_Err.out'/
+

@@ -1,6 +1,7 @@
 FC=gfortran
 #FCFLAGS= -g -Wall -fdefault-real-8 -ffree-line-length-0 -fbacktrace
-FCFLAGS= -g -fdefault-real-8 -ffree-line-length-0 -fbacktrace
+#FCFLAGS= -g -fdefault-real-8 -ffree-line-length-0 -fbacktrace
+FCFLAGS= -O3 -fdefault-real-8 -ffree-line-length-0 
 OUTNAME = HW1.exe
 
 SRCFILES_1 = $(wildcard src/*.f90)
